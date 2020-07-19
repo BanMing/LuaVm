@@ -58,7 +58,7 @@ func (self *reader) readString() string {
 		size = uint(self.readUnit64())
 	}
 	bytes := self.readBytes(size - 1)
-	return string(bytes);
+	return string(bytes)
 }
 
 // 检查头部
@@ -88,6 +88,96 @@ func (self *reader) checkHeader() {
 	}
 }
 
+// 读取指令表
+func (self *reader) readCode() []uint32 {
+	code := make([]uint32, self.readUint32())
+	for i := range code {
+		code[i] = self.readUint32()
+	}
+	return code
+}
+
+// 读取一个常量
+func (self *reader) readConstant() interface{} {
+	switch self.readByte() {
+	case TAG_NIL:
+		return nil
+	case TAG_BOOLEAN:
+		return self.readByte()
+	case TAG_INTERGER:
+		return self.readLuaInteger()
+	case TAG_NUMBER:
+		return self.readLuaNumber()
+	case TAG_SHORT_STR:
+		return self.readString()
+	case TAG_LONG_STR:
+		return self.readString()
+	default:
+		panic("corrupted! ")
+	}
+}
+
+// 读取常量表
+func (self *reader) readConstants() []interface{} {
+	constants := make([]interface{}, self.readUint32())
+	for i := range constants {
+		constants[i] = self.readConstant()
+	}
+	return constants
+}
+
+// 读取Upvalue
+func (self *reader) readUpvalues() []Upvalue {
+	upvalues := make([]Upvalue, self.readUint32())
+	for i := range upvalues {
+		upvalues[i] = Upvalue{
+			Instack: self.readByte(),
+			Idx:     self.readByte(),
+		}
+	}
+	return upvalues
+}
+
+// 递归读出子函数原型表
+func (self *reader) readProtos(parentSource string) []*Prototype {
+	protos := make([]*Prototype, self.readUint32())
+	for i := range protos {
+		protos[i] = self.readProto(parentSource)
+	}
+	return protos
+}
+
+// 读取行号表
+func (self *reader) readLineInfo() []uint32 {
+	lineInfo := make([]uint32, self.readUint32())
+	for i := range lineInfo {
+		lineInfo[i] = self.readUint32()
+	}
+	return lineInfo
+}
+
+// 读取局部变量
+func (self *reader) readLocVars() []LocVar {
+	locVars := make([]LocVar, self.readUint32())
+	for i := range locVars {
+		locVars[i] = LocVar{
+			VarName: self.readString(),
+			StartPC: self.readUint32(),
+			EndPC:   self.readUint32(),
+		}
+	}
+	return locVars
+}
+
+// 读取Upvalue名表
+func (self *reader) readUpvalueNames() []string {
+	names := make([]string, self.readUint32())
+	for i := range names {
+		names[i] = self.readString()
+	}
+	return names
+}
+
 // 从字节流里读取函数原型
 func (self *reader) readProto(parentSource string) *Prototype {
 	source := self.readString()
@@ -95,18 +185,18 @@ func (self *reader) readProto(parentSource string) *Prototype {
 		source = parentSource
 	}
 	return &Prototype{
-		Source: source,
+		Source:          source,
 		LineDefined:     self.readUint32(),
 		LastLineDefined: self.readUint32(),
 		NumParams:       self.readByte(),
 		IsVararg:        self.readByte(),
 		MaxStackSize:    self.readByte(),
-		Code:            self.readco,
-		Constants:       nil,
-		Upvalues:        nil,
-		Protos:          nil,
-		LineInfo:        nil,
-		LocVars:         nil,
-		UpvalueNames:    nil,
+		Code:            self.readCode(),
+		Constants:       self.readConstants(),
+		Upvalues:        self.readUpvalues(),
+		Protos:          self.readProtos(source),
+		LineInfo:        self.readLineInfo(),
+		LocVars:         self.readLocVars(),
+		UpvalueNames:    self.readUpvalueNames(),
 	}
 }
