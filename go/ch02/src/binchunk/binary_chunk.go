@@ -79,8 +79,8 @@ type binaryChunk struct {
 
 // 解析二进制chunk文件
 func Undump(data []byte) *Prototype {
-	//reader := &reader{data}
-	//reader.cheakHeader()        // 校验头部
-	//reader.readByte()           // 跳过Upvalue数量
-	//return reader.readProto("") // 读取函数原型
+	reader := &reader{data}
+	reader.checkHeader()        // 校验头部
+	reader.readByte()           // 跳过Upvalue数量
+	return reader.readProto("") // 读取函数原型
 }
