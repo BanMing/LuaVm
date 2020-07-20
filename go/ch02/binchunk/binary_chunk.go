@@ -5,7 +5,7 @@ const (
 	LUA_SINGATURE    = "\x1bLua" // 通用签名
 	LUAC_VERSION     = 0X53      // 版本号5.3.4.对应计算 5 * 16 + 3 = 83 对应16进制
 	LUAC_FORMAT      = 0
-	LUAC_DATA        = "\x19\x93\r\n\\xla\n"
+	LUAC_DATA        = "\x19\x93\r\n\x1a\n"
 	CINT_SIZE        = 4
 	CSIZET_SIZE      = 8
 	INSTRUCTION_SIZE = 4

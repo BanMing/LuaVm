@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-	"luavm/go/ch02/src/binchunk"
+	"luavm/go/ch02/binchunk"
 	"os"
 )
 
