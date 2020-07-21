@@ -2,7 +2,7 @@ package state
 
 import (
 	"fmt"
-	"luavm/go/ch04/api"
+	"luavm/go/api"
 )
 
 // 获得
@@ -80,14 +80,15 @@ func (self *luaState) ToBoolean(idx int) bool {
 // 转换数值
 func (self *luaState) ToNumberX(idx int) (float64, bool) {
 	val := self.stack.get(idx)
-	switch x := val.(type) {
-	case float64:
-		return x, true
-	case int64:
-		return float64(x), true
-	default:
-		return 0, false
-	}
+	return convertToFloat(val)
+	//switch x := val.(type) {
+	//case float64:
+	//	return x, true
+	//case int64:
+	//	return float64(x), true
+	//default:
+	//	return 0, false
+	//}
 }
 
 func (self *luaState) ToNumber(idx int) float64 {
@@ -97,8 +98,8 @@ func (self *luaState) ToNumber(idx int) float64 {
 
 func (self *luaState) ToIntegerX(idx int) (int64, bool) {
 	val := self.stack.get(idx)
-	i, ok := val.(int64)
-	return i, ok
+	//i, ok := val.(int64)
+	return convertToInteger(val)
 }
 
 func (self *luaState) ToInteger(idx int) int64 {

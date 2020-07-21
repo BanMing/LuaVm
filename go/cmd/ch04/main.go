@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"luavm/go/ch04/api"
-	"luavm/go/ch04/state"
+	"luavm/go/api"
+	"luavm/go/state"
 )
 
 func main() {

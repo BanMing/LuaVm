@@ -1,6 +1,9 @@
 package api
 
 type LuaType = int
+type ArithOp = int   //新增的类型别名
+type CompareOp = int //新增的类型别名
+
 type LuaState interface {
 	// basic stack manipulation
 	GetTop() int
@@ -14,6 +17,7 @@ type LuaState interface {
 	Remove(idx int)
 	Rotate(idx, n int)
 	SetTop(idx int)
+
 	//	access functions (stack - > Go
 	TypeName(tp LuaType) string
 	Type(idx int) LuaType
@@ -29,10 +33,16 @@ type LuaState interface {
 	ToNumber(idx int) float64
 	ToString(idx int) string
 	ToStringX(idx int) (string, bool)
+
 	//	push functions (Go ->stack)
 	PushNil()
 	PushBoolean(b bool)
 	PushInteger(n int64)
 	PushNumber(n float64)
 	PushString(s string)
+
+	Arith(op ArithOp)                          // 位运算
+	Compare(idx1, idx2 int, op CompareOp) bool // 比较运算
+	Len(idx int)                               // 取长度运算
+	Concat(n int)                              // 字符串拼接运算
 }
