@@ -1,8 +1,8 @@
 package state
 
 type luaStack struct {
-	slots [] luaValue // 存放值
-	top   int         // 记录栈顶索引
+	slots []luaValue // 存放值
+	top   int        // 记录栈顶索引
 }
 
 // 创建指定容量的栈
@@ -43,7 +43,7 @@ func (self *luaStack) pop() luaValue {
 
 // 把索引转成绝对索引
 func (self *luaStack) absIndex(idx int) int {
-	if idx > 0 {
+	if idx >= 0 {
 		return idx
 	}
 	return idx + self.top + 1
@@ -68,8 +68,18 @@ func (self *luaStack) get(idx int) luaValue {
 func (self *luaStack) set(idx int, val luaValue) {
 	absIdx := self.absIndex(idx)
 	if absIdx > 0 && absIdx <= self.top {
-		self.slots[absIdx] = val
+		self.slots[absIdx-1] = val
 	} else {
 		panic("invalid index!")
+	}
+}
+
+// 交换
+func (self *luaStack) reverse(from, to int) {
+	slots := self.slots
+	for from < to {
+		slots[from], slots[to] = slots[to], slots[from]
+		from++
+		to--
 	}
 }
