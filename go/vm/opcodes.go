@@ -1,5 +1,7 @@
 package vm
 
+import "luavm/go/api"
+
 // 指令编码模式
 const (
 	IABC = iota
@@ -10,11 +12,11 @@ const (
 
 // 操作码
 const (
-	OP_MOVE = iota
-	OP_LOADK
-	OP_LOADKX
-	OP_LOADBOOL
-	OP_LOADNIL
+	OP_MOVE     = iota // 在寄存器移动值 iABC模式
+	OP_LOADK           // iABx模式）将常量表里的某个常量加载到指定寄存器，寄存器索引由操作数A指定，常量表索引由操作数Bx指定
+	OP_LOADKX          // LOADKX指令（也是iABx模式）需要和EXTRAARG指令（iAx模式）搭配使用，用后者的Ax操作数来指定常量索引
+	OP_LOADBOOL        // iABC模式）给单个寄存器设置布尔值。寄存器索引由操作数A指定，布尔值由寄存器B指定（0代表false，非0代表true，如果寄存器C非0则跳过下一条指令
+	OP_LOADNIL         // 用于给连续n个寄存器放置nil值 起始索引由操作数A指定，寄存器数量则由操作数B指定 iABC模式
 	OP_GETTUPVAL
 	OP_GETTABUP
 	OP_GETTABLE
@@ -23,24 +25,24 @@ const (
 	OP_SETTABLE
 	OP_ENWTABLE
 	OP_SELF
-	OP_ADD
+	OP_ADD // 对两个寄存器或常量值（索引由操作数B和C指定）进行运算，将结果放入另一个寄存器（索引由操作数A指定
 	OP_SUB
 	OP_MUL
 	OP_MOD
 	OP_POW
 	OP_DIV
 	OP_IDIV
-	OP_BAND
+	OP_BAND // 一元算术运算指令（iABC模式），对操作数B所指定的寄存器里的值进行运算，然后把结果放入操作数A所指定的寄存器中
 	OP_BOR
 	OP_BXOR
 	OP_SHL
 	OP_SHR
-	OPUNM
+	OP_UNM
 	OP_BNOT
 	OP_NOT
 	OP_LEN
 	OP_CONCAT
-	OP_JMP
+	OP_JMP // 执行无条件跳转 iAsBx模式
 	OP_EQ
 	OP_LT
 	OP_LE
@@ -75,53 +77,54 @@ type opcode struct {
 	argCMode byte // C arg mode
 	opMode   byte // op mode
 	name     string
+	action   func(i Instruction, vm api.LuaVM)
 }
 
 var opcodes = []opcode{
-	{0, 1, OpArgR, OpArgN, IABC, "MOVE"},
-	{0, 1, OpArgK, OpArgN, IABx, "LOADK"},
-	{0, 1, OpArgN, OpArgN, IABx, "LOADKX"},
-	{0, 1, OpArgU, OpArgU, IABC, "LOADBOOL"},
-	{0, 1, OpArgU, OpArgN, IABC, "LOADNIL"},
-	{0, 1, OpArgU, OpArgN, IABC, "GETUPVAL"},
-	{0, 1, OpArgU, OpArgK, IABC, "GETTABUP"},
-	{0, 0, OpArgK, OpArgK, IABC, "SETTABUP"},
-	{0, 0, OpArgU, OpArgN, IABC, "SETUPVAL"},
-	{0, 0, OpArgK, OpArgK, IABC, "SETTABLE"},
-	{0, 1, OpArgU, OpArgU, IABC, "NEWTABLE"},
-	{0, 1, OpArgR, OpArgK, IABC, "SELF"},
-	{0, 1, OpArgK, OpArgK, IABC, "ADD"},
-	{0, 1, OpArgK, OpArgK, IABC, "SUB"},
-	{0, 1, OpArgK, OpArgK, IABC, "MUL"},
-	{0, 1, OpArgK, OpArgK, IABC, "MOD"},
-	{0, 1, OpArgK, OpArgK, IABC, "POW"},
-	{0, 1, OpArgK, OpArgK, IABC, "DIV"},
-	{0, 1, OpArgK, OpArgK, IABC, "IDIV"},
-	{0, 1, OpArgK, OpArgK, IABC, "BAND"},
-	{0, 1, OpArgK, OpArgK, IABC, "BOR"},
-	{0, 1, OpArgK, OpArgK, IABC, "BXOR"},
-	{0, 1, OpArgK, OpArgK, IABC, "SHL"},
-	{0, 1, OpArgK, OpArgK, IABC, "SHR"},
-	{0, 1, OpArgR, OpArgN, IABC, "UNM"},
-	{0, 1, OpArgR, OpArgN, IABC, "BNOT"},
-	{0, 1, OpArgR, OpArgN, IABC, "NOT"},
-	{0, 1, OpArgR, OpArgN, IABC, "LEN"},
-	{0, 1, OpArgR, OpArgR, IABC, "CONCAT"},
-	{0, 0, OpArgR, OpArgN, IAsBx, "JMP"},
-	{0, 0, OpArgK, OpArgK, IABC, "EQ"},
-	{0, 0, OpArgK, OpArgK, IABC, "LT"},
-	{0, 0, OpArgK, OpArgK, IABC, "LE"},
-	{0, 0, OpArgN, OpArgU, IABC, "TEST"},
-	{0, 1, OpArgR, OpArgU, IABC, "TESTSET"},
-	{0, 1, OpArgU, OpArgU, IABC, "CALL"},
-	{0, 1, OpArgU, OpArgU, IABC, "TAILCALL"},
-	{0, 0, OpArgU, OpArgN, IABC, "RETURN"},
-	{0, 1, OpArgR, OpArgN, IAsBx, "FORLOOP"},
-	{0, 1, OpArgR, OpArgN, IAsBx, "FORPREP"},
-	{0, 0, OpArgN, OpArgU, IABC, "TFORCALL"},
-	{0, 1, OpArgR, OpArgN, IAsBx, "TFORLOOP"},
-	{0, 0, OpArgU, OpArgU, IABC, "SETLIST"},
-	{0, 1, OpArgU, OpArgN, IABx, "CLOSURE"},
-	{0, 1, OpArgU, OpArgN, IABC, "VARARG"},
-	{0, 0, OpArgU, OpArgU, IAx, "EXTRAARG"},
+	{0, 1, OpArgR, OpArgN, IABC, "MOVE", move},
+	{0, 1, OpArgK, OpArgN, IABx, "LOADK", loadK},
+	{0, 1, OpArgN, OpArgN, IABx, "LOADKX", loadKx},
+	{0, 1, OpArgU, OpArgU, IABC, "LOADBOOL", loadBoolean},
+	{0, 1, OpArgU, OpArgN, IABC, "LOADNIL", loadNil},
+	{0, 1, OpArgU, OpArgN, IABC, "GETUPVAL", nil},
+	{0, 1, OpArgU, OpArgK, IABC, "GETTABUP", nil},
+	{0, 0, OpArgK, OpArgK, IABC, "SETTABUP", nil},
+	{0, 0, OpArgU, OpArgN, IABC, "SETUPVAL", nil},
+	{0, 0, OpArgK, OpArgK, IABC, "SETTABLE", nil},
+	{0, 1, OpArgU, OpArgU, IABC, "NEWTABLE", nil},
+	{0, 1, OpArgR, OpArgK, IABC, "SELF", nil},
+	{0, 1, OpArgK, OpArgK, IABC, "ADD", add},
+	{0, 1, OpArgK, OpArgK, IABC, "SUB", sub},
+	{0, 1, OpArgK, OpArgK, IABC, "MUL", mul},
+	{0, 1, OpArgK, OpArgK, IABC, "MOD", mod},
+	{0, 1, OpArgK, OpArgK, IABC, "POW", pow},
+	{0, 1, OpArgK, OpArgK, IABC, "DIV", div},
+	{0, 1, OpArgK, OpArgK, IABC, "IDIV", idiv},
+	{0, 1, OpArgK, OpArgK, IABC, "BAND", band},
+	{0, 1, OpArgK, OpArgK, IABC, "BOR", bor},
+	{0, 1, OpArgK, OpArgK, IABC, "BXOR", bxor},
+	{0, 1, OpArgK, OpArgK, IABC, "SHL", shl},
+	{0, 1, OpArgK, OpArgK, IABC, "SHR", shr},
+	{0, 1, OpArgR, OpArgN, IABC, "UNM", unm},
+	{0, 1, OpArgR, OpArgN, IABC, "BNOT", bnot},
+	{0, 1, OpArgR, OpArgN, IABC, "NOT", not},
+	{0, 1, OpArgR, OpArgN, IABC, "LEN", len},
+	{0, 1, OpArgR, OpArgR, IABC, "CONCAT", concat},
+	{0, 0, OpArgR, OpArgN, IAsBx, "JMP", jmp},
+	{0, 0, OpArgK, OpArgK, IABC, "EQ", eq},
+	{0, 0, OpArgK, OpArgK, IABC, "LT", lt},
+	{0, 0, OpArgK, OpArgK, IABC, "LE", le},
+	{0, 0, OpArgN, OpArgU, IABC, "TEST", test},
+	{0, 1, OpArgR, OpArgU, IABC, "TESTSET", testSet},
+	{0, 1, OpArgU, OpArgU, IABC, "CALL", nil},
+	{0, 1, OpArgU, OpArgU, IABC, "TAILCALL", nil},
+	{0, 0, OpArgU, OpArgN, IABC, "RETURN", nil},
+	{0, 1, OpArgR, OpArgN, IAsBx, "FORLOOP", forLoop},
+	{0, 1, OpArgR, OpArgN, IAsBx, "FORPREP", forPrep},
+	{0, 0, OpArgN, OpArgU, IABC, "TFORCALL", nil},
+	{0, 1, OpArgR, OpArgN, IAsBx, "TFORLOOP", nil},
+	{0, 0, OpArgU, OpArgU, IABC, "SETLIST", nil},
+	{0, 1, OpArgU, OpArgN, IABx, "CLOSURE", nil},
+	{0, 1, OpArgU, OpArgN, IABC, "VARARG", nil},
+	{0, 0, OpArgU, OpArgU, IAx, "EXTRAARG", nil},
 }
