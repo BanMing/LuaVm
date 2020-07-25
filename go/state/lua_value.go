@@ -36,6 +36,15 @@ func convertToBoolean(val luaValue) bool {
 	}
 }
 
+func _floatToInteger(key luaValue) luaValue {
+	if f, ok := key.(float64); ok {
+		if i, ok := number.FloatToInteger(f); ok {
+			return i
+		}
+	}
+	return key
+}
+
 // 转成浮点数
 func convertToFloat(val luaValue) (float64, bool) {
 	switch x := val.(type) {
