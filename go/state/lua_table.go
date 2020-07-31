@@ -76,6 +76,20 @@ func (self *luaTable) _shrinkArray() {
 	}
 }
 
-func (self *luaTable)  {
-
+// 扩展数组，把原本存在哈希表里的某些值也挪到数组里
+func (self *luaTable) _expandArray() {
+	for idx := int64(len(self.arr)) + 1; true; idx++ {
+		if val, found := self._map[idx]; found {
+			delete(self._map, idx)
+			self.arr = append(self.arr, val)
+		} else {
+			break
+		}
+	}
 }
+
+// 获得数组长度
+func (self *luaTable) len() int {
+	return len(self.arr)
+}
+

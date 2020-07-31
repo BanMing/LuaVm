@@ -45,4 +45,16 @@ type LuaState interface {
 	Compare(idx1, idx2 int, op CompareOp) bool // 比较运算
 	Len(idx int)                               // 取长度运算
 	Concat(n int)                              // 字符串拼接运算
+
+	//	get functions (Lua -> stack)
+	NewTable()
+	CreateTable(nArr, nRec int)
+	GetTable(idx int) LuaType
+	GetField(idx int, k string) LuaType
+	GetI(idx int, i int64) LuaType
+
+	//	set functions (Lua ->stack)
+	SetTable(idx int)
+	SetField(idx int, k string)
+	SetI(idx int, n int64)
 }
