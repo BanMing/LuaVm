@@ -1,5 +1,10 @@
 package state
 
+import (
+	"fmt"
+	"luavm/go/api"
+)
+
 // 基础栈操纵方法
 
 //f返回栈顶
@@ -85,4 +90,25 @@ func (self *luaState) SetTop(idx int) {
 			self.stack.push(nil)
 		}
 	}
+}
+
+// 打印数据
+func (self *luaState) PrintStackInfo() string {
+	i := 0
+	str := ""
+	for i < self.stack.top {
+		switch typeOf(self.stack.slots[i]) {
+		case api.LUA_TTABLE:
+			str += "[table]"
+		case api.LUA_TSTRING:
+			str += fmt.Sprintf("[\"%s\"]", self.stack.slots[i])
+		case api.LUA_TNUMBER:
+			num, _ := convertToFloat(self.stack.slots[i])
+			str += fmt.Sprintf("[%f]", num)
+		default:
+			str += "[nil]"
+		}
+		i++
+	}
+	return str
 }

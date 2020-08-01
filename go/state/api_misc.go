@@ -23,6 +23,7 @@ func (self *luaState) Concat(n int) {
 				self.stack.pop()
 				self.stack.pop()
 				self.stack.push(s1 + s2)
+				continue
 			} else {
 				panic("concatenation error!")
 			}

@@ -42,7 +42,7 @@ func (self *luaTable) put(key, val luaValue) {
 			self.arr[idx-1] = val
 			if idx == arrLen && val == nil {
 				// 把尾部的洞全部删除
-				//self._shrinkArray()
+				self._shrinkArray()
 			}
 			return
 		}
@@ -51,7 +51,7 @@ func (self *luaTable) put(key, val luaValue) {
 			if val != nil {
 				self.arr = append(self.arr, val)
 				// 动态扩展数组
-				//self._expandArray()
+				self._expandArray()
 			}
 			return
 		}
@@ -61,7 +61,7 @@ func (self *luaTable) put(key, val luaValue) {
 		if self._map == nil {
 			self._map = make(map[luaValue]luaValue, 8)
 		}
-		self._map[key] = nil
+		self._map[key] = val
 	} else {
 		delete(self._map, key)
 	}
