@@ -1,16 +1,22 @@
 package state
 
-import "luavm/go/binchunk"
-
 type luaState struct {
 	stack *luaStack
-	proto *binchunk.Prototype // 函数原型
-	pc    int                 // 计数
 }
 
-func New(stackSize int, proto *binchunk.Prototype) *luaState {
-	return &luaState{
-		stack: newLuaStack(stackSize),
-		proto: proto,
-		pc:    0}
+// 构造
+func New(stackSize int) *luaState {
+	return &luaState{stack: newLuaStack(stackSize)}
+}
+
+//
+func (self *luaState) pushLuaStack(stack *luaStack) {
+	stack.prev = self.stack
+	self.stack = stack
+}
+
+func (self *luaState) popLuaStack() {
+	stack := self.stack
+	self.stack = stack.prev
+	stack.prev = nil
 }

@@ -3,6 +3,11 @@ package state
 type luaStack struct {
 	slots []luaValue // 存放值
 	top   int        // 记录栈顶索引
+
+	prev    *luaStack
+	closure *luaClosure //闭包
+	varargs []luaValue
+	pc      int // 计数
 }
 
 // 创建指定容量的栈
@@ -81,5 +86,29 @@ func (self *luaStack) reverse(from, to int) {
 		slots[from], slots[to] = slots[to], slots[from]
 		from++
 		to--
+	}
+}
+
+// 一次性弹出多个
+func (self *luaStack) popN(n int) []luaValue {
+	vals := make([]luaValue, n)
+	for i := n - 1; i >= 0; i++ {
+		vals[i] = self.pop()
+	}
+	return vals
+}
+
+// 一次性压入多个
+func (self *luaStack) pushN(vals []luaValue, n int) {
+	nVals := len(vals)
+	if n < 0 {
+		n = nVals
+	}
+	for i := 0; i < n; i++ {
+		if i < nVals {
+			self.push(vals[i])
+		} else {
+			self.push(nil)
+		}
 	}
 }
