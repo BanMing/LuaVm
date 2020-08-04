@@ -15,26 +15,29 @@ func (self *luaState) Load(chunk []byte, chunkName, mode string) int {
 	return 0
 }
 
+// [-(nargs+1), +nresults, e]
+// http://www.lua.org/manual/5.3/manual.html#lua_call
 func (self *luaState) Call(nArgs, nResults int) {
 	val := self.stack.get(-(nArgs + 1))
 	if c, ok := val.(*luaClosure); ok {
-		fmt.Printf("call %s<%d, %d>\n", c.proto.Source, c.proto.LineDefined, c.proto.LastLineDefined)
+		fmt.Printf("call %s<%d,%d>\n", c.proto.Source,
+			c.proto.LineDefined, c.proto.LastLineDefined)
 		self.callLuaClosure(nArgs, nResults, c)
 	} else {
 		panic("not function!")
 	}
 }
 
-//调用闭包方法
-func (self *luaState) callLuaClosure(nArgs, mResults int, c *luaClosure) {
-	// 准备调用数据
+func (self *luaState) callLuaClosure(nArgs, nResults int, c *luaClosure) {
 	nRegs := int(c.proto.MaxStackSize)
 	nParams := int(c.proto.NumParams)
 	isVararg := c.proto.IsVararg == 1
 
+	// create new lua stack
 	newStack := newLuaStack(nRegs + 20)
 	newStack.closure = c
 
+	// pass args, pop func
 	funcAndArgs := self.stack.popN(nArgs + 1)
 	newStack.pushN(funcAndArgs[1:], nParams)
 	newStack.top = nRegs
@@ -42,18 +45,19 @@ func (self *luaState) callLuaClosure(nArgs, mResults int, c *luaClosure) {
 		newStack.varargs = funcAndArgs[nParams+1:]
 	}
 
+	// run closure
 	self.pushLuaStack(newStack)
 	self.runLuaClosure()
 	self.popLuaStack()
 
-	if mResults != 0 {
+	// return results
+	if nResults != 0 {
 		results := newStack.popN(newStack.top - nRegs)
 		self.stack.check(len(results))
-		self.stack.pushN(results, mResults)
+		self.stack.pushN(results, nResults)
 	}
 }
 
-// 执行闭包
 func (self *luaState) runLuaClosure() {
 	for {
 		inst := vm.Instruction(self.Fetch())
