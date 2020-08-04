@@ -51,6 +51,7 @@ func _return(i Instruction, vm api.LuaVM) {
 func vararg(i Instruction, vm api.LuaVM) {
 	a, b, _ := i.ABC()
 	a += 1
+
 	if b != 1 {
 		vm.LoadVararg(b - 1)
 		_popResults(a, b, vm)
@@ -110,13 +111,13 @@ func _fixStack(a int, vm api.LuaVM) {
 // 弹出返回值
 func _popResults(a, c int, vm api.LuaVM) {
 	if c == 1 {
-		//	no results
+		// no results
 	} else if c > 1 {
-		//	数量c-1 results
-		for i := a + c - 1; i >= a; i-- {
+		for i := a + c - 2; i >= a; i-- {
 			vm.Replace(i)
 		}
 	} else {
+		// leave results on stack
 		vm.CheckStack(1)
 		vm.PushInteger(int64(a))
 	}
