@@ -1,79 +1,84 @@
 package state
 
-import (
-	"fmt"
-	"luavm/go/api"
-)
-
-// 基础栈操纵方法
-
-//f返回栈顶
+// [-0, +0, –]
+// http://www.lua.org/manual/5.3/manual.html#lua_gettop
 func (self *luaState) GetTop() int {
 	return self.stack.top
 }
 
-// 返回绝对索引
+// [-0, +0, –]
+// http://www.lua.org/manual/5.3/manual.html#lua_absindex
 func (self *luaState) AbsIndex(idx int) int {
 	return self.stack.absIndex(idx)
 }
 
-// 检查栈剩余空间
+// [-0, +0, –]
+// http://www.lua.org/manual/5.3/manual.html#lua_checkstack
 func (self *luaState) CheckStack(n int) bool {
 	self.stack.check(n)
-	return true
+	return true // never fails
 }
 
+// [-n, +0, –]
+// http://www.lua.org/manual/5.3/manual.html#lua_pop
 func (self *luaState) Pop(n int) {
-	//for i := 0; i < n; i++ {
-	//	self.stack.pop()
-	//}
-	self.SetTop(-n - 1)
+	for i := 0; i < n; i++ {
+		self.stack.pop()
+	}
 }
 
+// [-0, +0, –]
+// http://www.lua.org/manual/5.3/manual.html#lua_copy
 func (self *luaState) Copy(fromIdx, toIdx int) {
 	val := self.stack.get(fromIdx)
 	self.stack.set(toIdx, val)
 }
 
-// 将指定位置值 复制到栈顶
+// [-0, +1, –]
+// http://www.lua.org/manual/5.3/manual.html#lua_pushvalue
 func (self *luaState) PushValue(idx int) {
 	val := self.stack.get(idx)
 	self.stack.push(val)
 }
 
-// 将栈顶值弹出，写入指定位置
+// [-1, +0, –]
+// http://www.lua.org/manual/5.3/manual.html#lua_replace
 func (self *luaState) Replace(idx int) {
 	val := self.stack.pop()
 	self.stack.set(idx, val)
 }
 
-// [idx,top]索引区间内的值朝栈顶方向旋转n个位置
-func (self *luaState) Rotate(idx, n int) {
-	t := self.stack.top - 1
-	p := self.stack.absIndex(idx) - 1
-	var m int
-	if n > 0 {
-		m = t - n
-	} else {
-		m = p - n - 1
-	}
-
-	self.stack.reverse(p, m)
-	self.stack.reverse(m+1, t)
-	self.stack.reverse(p, t)
-}
-
-// 将栈顶值插入任意位置
+// [-1, +1, –]
+// http://www.lua.org/manual/5.3/manual.html#lua_insert
 func (self *luaState) Insert(idx int) {
 	self.Rotate(idx, 1)
 }
 
-// 删除任意位置
+// [-1, +0, –]
+// http://www.lua.org/manual/5.3/manual.html#lua_remove
 func (self *luaState) Remove(idx int) {
 	self.Rotate(idx, -1)
 	self.Pop(1)
 }
 
+// [-0, +0, –]
+// http://www.lua.org/manual/5.3/manual.html#lua_rotate
+func (self *luaState) Rotate(idx, n int) {
+	t := self.stack.top - 1           /* end of stack segment being rotated */
+	p := self.stack.absIndex(idx) - 1 /* start of segment */
+	var m int                         /* end of prefix */
+	if n >= 0 {
+		m = t - n
+	} else {
+		m = p - n - 1
+	}
+	self.stack.reverse(p, m)   /* reverse the prefix with length 'n' */
+	self.stack.reverse(m+1, t) /* reverse the suffix */
+	self.stack.reverse(p, t)   /* reverse the entire segment */
+}
+
+// [-?, +?, –]
+// http://www.lua.org/manual/5.3/manual.html#lua_settop
 func (self *luaState) SetTop(idx int) {
 	newTop := self.stack.absIndex(idx)
 	if newTop < 0 {
@@ -86,29 +91,8 @@ func (self *luaState) SetTop(idx int) {
 			self.stack.pop()
 		}
 	} else if n < 0 {
-		for j := 0; j > n; j-- {
+		for i := 0; i > n; i-- {
 			self.stack.push(nil)
 		}
 	}
-}
-
-// 打印数据
-func (self *luaState) PrintStackInfo() string {
-	i := 0
-	str := ""
-	for i < self.stack.top {
-		switch typeOf(self.stack.slots[i]) {
-		case api.LUA_TTABLE:
-			str += "[table]"
-		case api.LUA_TSTRING:
-			str += fmt.Sprintf("[\"%s\"]", self.stack.slots[i])
-		case api.LUA_TNUMBER:
-			num, _ := convertToFloat(self.stack.slots[i])
-			str += fmt.Sprintf("[%f]", num)
-		default:
-			str += "[nil]"
-		}
-		i++
-	}
-	return str
 }

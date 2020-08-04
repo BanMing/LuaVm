@@ -29,6 +29,7 @@ type LuaState interface {
 	IsNumber(idx int) bool
 	IsString(idx int) bool
 	ToBoolean(idx int) bool
+	ToInteger(idx int) int64
 	ToIntegerX(idx int) (int64, bool)
 	ToNumber(idx int) float64
 	ToString(idx int) string

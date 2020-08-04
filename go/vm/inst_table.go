@@ -4,7 +4,7 @@ import (
 	"luavm/go/api"
 )
 
-const LFIEFDS_PER_FLUSH = 50
+const LFIELDS_PER_FLUSH = 50
 
 func newTable(i Instruction, vm api.LuaVM) {
 	// R(A) := {} (size = B,C)
@@ -34,7 +34,7 @@ func setTable(i Instruction, vm api.LuaVM) {
 	vm.SetTable(a)
 }
 
-// R(A)[(C-1)*FPF+i] := R(A+i),1<=i<=Blu
+// R(A)[(C-1)*FPF+i] := R(A+i), 1 <= i <= B
 func setList(i Instruction, vm api.LuaVM) {
 	a, b, c := i.ABC()
 	a += 1
@@ -45,10 +45,28 @@ func setList(i Instruction, vm api.LuaVM) {
 		c = Instruction(vm.Fetch()).Ax()
 	}
 
-	idx := int64(c * LFIEFDS_PER_FLUSH)
+	bIsZero := b == 0
+	if bIsZero {
+		b = int(vm.ToInteger(-1)) - a - 1
+		vm.Pop(1)
+	}
+
+	vm.CheckStack(1)
+	idx := int64(c * LFIELDS_PER_FLUSH)
 	for j := 1; j <= b; j++ {
 		idx++
 		vm.PushValue(a + j)
 		vm.SetI(a, idx)
+	}
+
+	if bIsZero {
+		for j := vm.RegisterCount() + 1; j <= vm.GetTop(); j++ {
+			idx++
+			vm.PushValue(j)
+			vm.SetI(a, idx)
+		}
+
+		// clear stack
+		vm.SetTop(vm.RegisterCount())
 	}
 }

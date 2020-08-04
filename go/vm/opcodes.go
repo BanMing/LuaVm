@@ -2,22 +2,31 @@ package vm
 
 import "luavm/go/api"
 
-// 指令编码模式
+/* OpMode */
+/* basic instruction format */
 const (
-	IABC = iota
-	IABx
-	IAsBx
-	IAx
+	IABC  = iota // [  B:9  ][  C:9  ][ A:8  ][OP:6]
+	IABx         // [      Bx:18     ][ A:8  ][OP:6]
+	IAsBx        // [     sBx:18     ][ A:8  ][OP:6]
+	IAx          // [           Ax:26        ][OP:6]
+)
+
+/* OpArgMask */
+const (
+	OpArgN = iota // argument is not used
+	OpArgU        // argument is used
+	OpArgR        // argument is a register or a jump offset
+	OpArgK        // argument is a constant or register/constant
 )
 
 // 操作码
 const (
-	OP_MOVE     = iota // 在寄存器移动值 iABC模式
-	OP_LOADK           // iABx模式）将常量表里的某个常量加载到指定寄存器，寄存器索引由操作数A指定，常量表索引由操作数Bx指定
-	OP_LOADKX          // LOADKX指令（也是iABx模式）需要和EXTRAARG指令（iAx模式）搭配使用，用后者的Ax操作数来指定常量索引
-	OP_LOADBOOL        // iABC模式）给单个寄存器设置布尔值。寄存器索引由操作数A指定，布尔值由寄存器B指定（0代表false，非0代表true，如果寄存器C非0则跳过下一条指令
-	OP_LOADNIL         // 用于给连续n个寄存器放置nil值 起始索引由操作数A指定，寄存器数量则由操作数B指定 iABC模式
-	OP_GETTUPVAL
+	OP_MOVE = iota
+	OP_LOADK
+	OP_LOADKX
+	OP_LOADBOOL
+	OP_LOADNIL
+	OP_GETUPVAL
 	OP_GETTABUP
 	OP_GETTABLE
 	OP_SETTABUP
@@ -25,14 +34,14 @@ const (
 	OP_SETTABLE
 	OP_NEWTABLE
 	OP_SELF
-	OP_ADD // 对两个寄存器或常量值（索引由操作数B和C指定）进行运算，将结果放入另一个寄存器（索引由操作数A指定
+	OP_ADD
 	OP_SUB
 	OP_MUL
 	OP_MOD
 	OP_POW
 	OP_DIV
 	OP_IDIV
-	OP_BAND // 一元算术运算指令（iABC模式），对操作数B所指定的寄存器里的值进行运算，然后把结果放入操作数A所指定的寄存器中
+	OP_BAND
 	OP_BOR
 	OP_BXOR
 	OP_SHL
@@ -42,7 +51,7 @@ const (
 	OP_NOT
 	OP_LEN
 	OP_CONCAT
-	OP_JMP // 执行无条件跳转 iAsBx模式
+	OP_JMP
 	OP_EQ
 	OP_LT
 	OP_LE
@@ -61,14 +70,6 @@ const (
 	OP_EXTRAARG
 )
 
-// 操作数
-const (
-	OpArgN = iota // argument is not used
-	OpArgU        // argument is used
-	OpArgR        // argument is a register or a jump offset
-	OpArgK        // argument is a constant or register/constant
-)
-
 // 每条指令的基本信息
 type opcode struct {
 	testFlag byte // operator is a test (next instruction must be a jump)
@@ -81,51 +82,52 @@ type opcode struct {
 }
 
 var opcodes = []opcode{
-	{0, 1, OpArgR, OpArgN, IABC, "MOVE     ", move},
-	{0, 1, OpArgK, OpArgN, IABx, "LOADK    ", loadK},
-	{0, 1, OpArgN, OpArgN, IABx, "LOADKX   ", loadKx},
-	{0, 1, OpArgU, OpArgU, IABC, "LOADBOOL ", loadBoolean},
-	{0, 1, OpArgU, OpArgN, IABC, "LOADNIL  ", loadNil},
-	{0, 1, OpArgU, OpArgN, IABC, "GETUPVAL ", nil},
-	{0, 1, OpArgU, OpArgK, IABC, "GETTABUP ", nil},
-	{0, 1, OpArgR, OpArgK, IABC, "GETTABLE ", getTable},
-	{0, 0, OpArgK, OpArgK, IABC, "SETTABUP ", nil},
-	{0, 0, OpArgU, OpArgN, IABC, "SETUPVAL ", nil},
-	{0, 0, OpArgK, OpArgK, IABC, "SETTABLE ", setTable},
-	{0, 1, OpArgU, OpArgU, IABC, "NEWTABLE ", newTable},
-	{0, 1, OpArgR, OpArgK, IABC, "SELF     ", nil},
-	{0, 1, OpArgK, OpArgK, IABC, "ADD      ", add},
-	{0, 1, OpArgK, OpArgK, IABC, "SUB      ", sub},
-	{0, 1, OpArgK, OpArgK, IABC, "MUL      ", mul},
-	{0, 1, OpArgK, OpArgK, IABC, "MOD      ", mod},
-	{0, 1, OpArgK, OpArgK, IABC, "POW      ", pow},
-	{0, 1, OpArgK, OpArgK, IABC, "DIV      ", div},
-	{0, 1, OpArgK, OpArgK, IABC, "IDIV     ", idiv},
-	{0, 1, OpArgK, OpArgK, IABC, "BAND     ", band},
-	{0, 1, OpArgK, OpArgK, IABC, "BOR      ", bor},
-	{0, 1, OpArgK, OpArgK, IABC, "BXOR     ", bxor},
-	{0, 1, OpArgK, OpArgK, IABC, "SHL      ", shl},
-	{0, 1, OpArgK, OpArgK, IABC, "SHR      ", shr},
-	{0, 1, OpArgR, OpArgN, IABC, "UNM      ", unm},
-	{0, 1, OpArgR, OpArgN, IABC, "BNOT     ", bnot},
-	{0, 1, OpArgR, OpArgN, IABC, "NOT      ", not},
-	{0, 1, OpArgR, OpArgN, IABC, "LEN      ", len},
-	{0, 1, OpArgR, OpArgR, IABC, "CONCAT   ", concat},
-	{0, 0, OpArgR, OpArgN, IAsBx, "JMP      ", jmp},
-	{0, 0, OpArgK, OpArgK, IABC, "EQ       ", eq},
-	{0, 0, OpArgK, OpArgK, IABC, "LT       ", lt},
-	{0, 0, OpArgK, OpArgK, IABC, "LE       ", le},
-	{0, 0, OpArgN, OpArgU, IABC, "TEST     ", test},
-	{0, 1, OpArgR, OpArgU, IABC, "TESTSET  ", testSet},
-	{0, 1, OpArgU, OpArgU, IABC, "CALL     ", nil},
-	{0, 1, OpArgU, OpArgU, IABC, "TAILCALL ", nil},
-	{0, 0, OpArgU, OpArgN, IABC, "RETURN   ", nil},
-	{0, 1, OpArgR, OpArgN, IAsBx, "FORLOOP ", forLoop},
-	{0, 1, OpArgR, OpArgN, IAsBx, "FORPREP ", forPrep},
-	{0, 0, OpArgN, OpArgU, IABC, "TFORCALL ", nil},
-	{0, 1, OpArgR, OpArgN, IAsBx, "TFORLOOP", nil},
-	{0, 0, OpArgU, OpArgU, IABC, "SETLIST  ", setList},
-	{0, 1, OpArgU, OpArgN, IABx, "CLOSURE  ", nil},
-	{0, 1, OpArgU, OpArgN, IABC, "VARARG   ", nil},
-	{0, 0, OpArgU, OpArgU, IAx, "EXTRAARG  ", nil},
+	/*     T  A    B       C     mode         name       action */
+	opcode{0, 1, OpArgR, OpArgN, IABC /* */, "MOVE    ", move},        // R(A) := R(B)
+	opcode{0, 1, OpArgK, OpArgN, IABx /* */, "LOADK   ", loadK},       // R(A) := Kst(Bx)
+	opcode{0, 1, OpArgN, OpArgN, IABx /* */, "LOADKX  ", loadKx},      // R(A) := Kst(extra arg)
+	opcode{0, 1, OpArgU, OpArgU, IABC /* */, "LOADBOOL", loadBoolean}, // R(A) := (bool)B; if (C) pc++
+	opcode{0, 1, OpArgU, OpArgN, IABC /* */, "LOADNIL ", loadNil},     // R(A), R(A+1), ..., R(A+B) := nil
+	opcode{0, 1, OpArgU, OpArgN, IABC /* */, "GETUPVAL", nil},         // R(A) := UpValue[B]
+	opcode{0, 1, OpArgU, OpArgK, IABC /* */, "GETTABUP", nil},         // R(A) := UpValue[B][RK(C)]
+	opcode{0, 1, OpArgR, OpArgK, IABC /* */, "GETTABLE", getTable},    // R(A) := R(B)[RK(C)]
+	opcode{0, 0, OpArgK, OpArgK, IABC /* */, "SETTABUP", nil},         // UpValue[A][RK(B)] := RK(C)
+	opcode{0, 0, OpArgU, OpArgN, IABC /* */, "SETUPVAL", nil},         // UpValue[B] := R(A)
+	opcode{0, 0, OpArgK, OpArgK, IABC /* */, "SETTABLE", setTable},    // R(A)[RK(B)] := RK(C)
+	opcode{0, 1, OpArgU, OpArgU, IABC /* */, "NEWTABLE", newTable},    // R(A) := {} (size = B,C)
+	opcode{0, 1, OpArgR, OpArgK, IABC /* */, "SELF    ", self},        // R(A+1) := R(B); R(A) := R(B)[RK(C)]
+	opcode{0, 1, OpArgK, OpArgK, IABC /* */, "ADD     ", add},         // R(A) := RK(B) + RK(C)
+	opcode{0, 1, OpArgK, OpArgK, IABC /* */, "SUB     ", sub},         // R(A) := RK(B) - RK(C)
+	opcode{0, 1, OpArgK, OpArgK, IABC /* */, "MUL     ", mul},         // R(A) := RK(B) * RK(C)
+	opcode{0, 1, OpArgK, OpArgK, IABC /* */, "MOD     ", mod},         // R(A) := RK(B) % RK(C)
+	opcode{0, 1, OpArgK, OpArgK, IABC /* */, "POW     ", pow},         // R(A) := RK(B) ^ RK(C)
+	opcode{0, 1, OpArgK, OpArgK, IABC /* */, "DIV     ", div},         // R(A) := RK(B) / RK(C)
+	opcode{0, 1, OpArgK, OpArgK, IABC /* */, "IDIV    ", idiv},        // R(A) := RK(B) // RK(C)
+	opcode{0, 1, OpArgK, OpArgK, IABC /* */, "BAND    ", band},        // R(A) := RK(B) & RK(C)
+	opcode{0, 1, OpArgK, OpArgK, IABC /* */, "BOR     ", bor},         // R(A) := RK(B) | RK(C)
+	opcode{0, 1, OpArgK, OpArgK, IABC /* */, "BXOR    ", bxor},        // R(A) := RK(B) ~ RK(C)
+	opcode{0, 1, OpArgK, OpArgK, IABC /* */, "SHL     ", shl},         // R(A) := RK(B) << RK(C)
+	opcode{0, 1, OpArgK, OpArgK, IABC /* */, "SHR     ", shr},         // R(A) := RK(B) >> RK(C)
+	opcode{0, 1, OpArgR, OpArgN, IABC /* */, "UNM     ", unm},         // R(A) := -R(B)
+	opcode{0, 1, OpArgR, OpArgN, IABC /* */, "BNOT    ", bnot},        // R(A) := ~R(B)
+	opcode{0, 1, OpArgR, OpArgN, IABC /* */, "NOT     ", not},         // R(A) := not R(B)
+	opcode{0, 1, OpArgR, OpArgN, IABC /* */, "LEN     ", len},         // R(A) := length of R(B)
+	opcode{0, 1, OpArgR, OpArgR, IABC /* */, "CONCAT  ", concat},      // R(A) := R(B).. ... ..R(C)
+	opcode{0, 0, OpArgR, OpArgN, IAsBx /**/, "JMP     ", jmp},         // pc+=sBx; if (A) close all upvalues >= R(A - 1)
+	opcode{1, 0, OpArgK, OpArgK, IABC /* */, "EQ      ", eq},          // if ((RK(B) == RK(C)) ~= A) then pc++
+	opcode{1, 0, OpArgK, OpArgK, IABC /* */, "LT      ", lt},          // if ((RK(B) <  RK(C)) ~= A) then pc++
+	opcode{1, 0, OpArgK, OpArgK, IABC /* */, "LE      ", le},          // if ((RK(B) <= RK(C)) ~= A) then pc++
+	opcode{1, 0, OpArgN, OpArgU, IABC /* */, "TEST    ", test},        // if not (R(A) <=> C) then pc++
+	opcode{1, 1, OpArgR, OpArgU, IABC /* */, "TESTSET ", testSet},     // if (R(B) <=> C) then R(A) := R(B) else pc++
+	opcode{0, 1, OpArgU, OpArgU, IABC /* */, "CALL    ", call},        // R(A), ... ,R(A+C-2) := R(A)(R(A+1), ... ,R(A+B-1))
+	opcode{0, 1, OpArgU, OpArgU, IABC /* */, "TAILCALL", tailCall},    // return R(A)(R(A+1), ... ,R(A+B-1))
+	opcode{0, 0, OpArgU, OpArgN, IABC /* */, "RETURN  ", _return},     // return R(A), ... ,R(A+B-2)
+	opcode{0, 1, OpArgR, OpArgN, IAsBx /**/, "FORLOOP ", forLoop},     // R(A)+=R(A+2); if R(A) <?= R(A+1) then { pc+=sBx; R(A+3)=R(A) }
+	opcode{0, 1, OpArgR, OpArgN, IAsBx /**/, "FORPREP ", forPrep},     // R(A)-=R(A+2); pc+=sBx
+	opcode{0, 0, OpArgN, OpArgU, IABC /* */, "TFORCALL", nil},         // R(A+3), ... ,R(A+2+C) := R(A)(R(A+1), R(A+2));
+	opcode{0, 1, OpArgR, OpArgN, IAsBx /**/, "TFORLOOP", nil},         // if R(A+1) ~= nil then { R(A)=R(A+1); pc += sBx }
+	opcode{0, 0, OpArgU, OpArgU, IABC /* */, "SETLIST ", setList},     // R(A)[(C-1)*FPF+i] := R(A+i), 1 <= i <= B
+	opcode{0, 1, OpArgU, OpArgN, IABx /* */, "CLOSURE ", closure},     // R(A) := closure(KPROTO[Bx])
+	opcode{0, 1, OpArgU, OpArgN, IABC /* */, "VARARG  ", vararg},      // R(A), R(A+1), ..., R(A+B-2) = vararg
+	opcode{0, 0, OpArgU, OpArgU, IAx /*  */, "EXTRAARG", nil},         // extra (larger) argument for previous opcode}
 }

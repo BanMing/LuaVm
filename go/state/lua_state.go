@@ -4,12 +4,12 @@ type luaState struct {
 	stack *luaStack
 }
 
-// 构造
-func New(stackSize int) *luaState {
-	return &luaState{stack: newLuaStack(stackSize)}
+func New() *luaState {
+	return &luaState{
+		stack: newLuaStack(20),
+	}
 }
 
-//
 func (self *luaState) pushLuaStack(stack *luaStack) {
 	stack.prev = self.stack
 	self.stack = stack

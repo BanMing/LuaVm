@@ -66,6 +66,21 @@ func tailCall(i Instruction, vm api.LuaVM) {
 	_popResults(a, c, vm)
 }
 
+// 把对象和方法拷贝到相邻的两个目标寄存器中。
+// 对象在寄存器中，索引由操作数B指定。
+// 方法名在常量表里，索引由操作数C指定。
+// 目标寄存器索引由操作数A指定
+func self(i Instruction, vm api.LuaVM) {
+	a, b, c := i.ABC()
+	a += 1
+	b += 1
+
+	vm.Copy(b, a+1)
+	vm.GetRK(c)
+	vm.GetTable(b)
+	vm.Replace(a)
+}
+
 // 把函数和参数压入栈
 func _pushFuncAndArgs(a, b int, vm api.LuaVM) (nArgs int) {
 	if b >= 1 {
@@ -82,8 +97,7 @@ func _pushFuncAndArgs(a, b int, vm api.LuaVM) (nArgs int) {
 }
 
 func _fixStack(a int, vm api.LuaVM) {
-	num, _ := vm.ToIntegerX(-1)
-	x := int(num)
+	x := int(vm.ToInteger(-1))
 	vm.Pop(1)
 
 	vm.CheckStack(x - a)
